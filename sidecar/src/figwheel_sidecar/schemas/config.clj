@@ -57,6 +57,7 @@
     ::builds-to-start
     ::auto-clean
     ::server-logfile
+    ::readline
     ::open-file-command
     ::repl-eval-timeout
     ::repl
@@ -175,6 +176,17 @@ You can set :auto-clean flase to disable this behavior.
 Default: true
 
   :auto-clean false")
+
+(def-key ::readline boolean?
+  "By default Figwheel engauges a Rebel readline editor when it starts
+the ClojureScript Repl in the terminal that it is launched in.
+
+More about Rebel readline:
+https://github.com/bhauman/rebel-readline
+
+Default: true
+
+  :readline false")
 
 (def-key ::server-logfile    (some-fn non-blank-string? false?)
   "The path to the file where Figwheel will log its system output.
@@ -334,9 +346,6 @@ Figwheel does note if there is a macro in the changed clj or cljc file
 and then marks any cljs namespaces that depend on the clj file for
 recompilation and then notifies the figwheel client that these
 namespaces have changed.
-
-If there is no macro in the clj/cljc namespace figwheel marks all cljs files
-for recompilation.
 
 If you want to disable this behavior:
 

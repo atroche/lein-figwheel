@@ -22,7 +22,7 @@
 
   :plugins [[lein-ring "0.8.13" :exclusions [org.clojure/clojure]]
             #_[lein-cljsbuild "1.1.2"]
-            [lein-figwheel "0.5.15-SNAPSHOT"]
+            [lein-figwheel "0.5.16-SNAPSHOT"]
             #_[lein-npm "0.4.0"]]
 
   :node-dependencies [[source-map-support "0.2.8"]
@@ -46,11 +46,10 @@
 
   :resource-paths ["resources" "other_resources"]
 
-
   :cljsbuild {
               :builds {
                        :example {
-                                 :source-paths ["src" #_"dev" #_"tests" #_"../support/src"]
+                                 :source-paths ["src" #_"dev" #_"tests" "../support/src"]
                                  :notify-command ["notify"]
                                  :figwheel {:websocket-host "localhost"
                                             :on-jsload      example.core/fig-reload
@@ -116,7 +115,7 @@
                                                        }}}}
 
   :profiles { :dev { :dependencies [[com.cemerick/piggieback "0.2.1"]
-                                    [figwheel-sidecar "0.5.15-SNAPSHOT"]
+                                    [figwheel-sidecar "0.5.16-SNAPSHOT"]
                                     [org.clojure/tools.namespace "0.2.11"]
                                     [org.clojure/tools.nrepl "0.2.12"]
                                     [leiningen-core "2.6.1"]]
@@ -125,8 +124,7 @@
                                    :recompile-dependents false
                                    }
                     :source-paths ["src" "dev"]
-                    :repl-options {:init (set! *print-length* 50)}
-                    :plugins [[cider/cider-nrepl "0.11.0"]]}}
+                    :repl-options {:init (set! *print-length* 50)}}}
 
 
   ; :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}

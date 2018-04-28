@@ -159,7 +159,7 @@ human-readable manner. Defaults to true.
 
   :pretty-print false")
 
-(def-key ::target                    #{:nodejs}
+(def-key ::target                    #{:nodejs :webworker}
 
   "If targeting nodejs add this line. Takes no other options at the
 moment. The default (no :target specified) implies browsers are being
@@ -511,9 +511,12 @@ For :optimization :none, a :main option must be specified for defines
 to work, and only goog-define defines are affected. :closure-defines
 currently does not have any effect with :optimization :whitespace.")
 
-(def-key ::npm-deps (s/map-of ::string-or-named string?)
-  "Please see:
-https://anmonteiro.com/2017/03/requiring-node-js-modules-from-clojurescript-namespaces/
+(def-key ::npm-deps (s/or :map   (s/map-of ::string-or-named string?)
+                          :false false?)
+  "Declare NPM dependencies. A map of NPM package names to the desired
+versions or the Boolean value false. If false then any existing
+node_modules directory will not be indexed nor used. See also
+:install-deps.
 
   :npm-deps {:left-pad \"1.1.3\" }")
 
@@ -623,6 +626,11 @@ to :es6 or higher or it will silently be ignored!
 
   :language-in :es6
   :rewrite-polyfills true")
+
+(def-key ::aot-cache boolean?
+  "A boolean value to disable or enable global caching of compiled assets.
+
+  :aot-cache false")
 
 (def-key ::checked-arrays (s/or :keyval #{:warn :error}
                                 :false   false?
@@ -1079,4 +1087,27 @@ See the Closure Compiler Warning wiki for detailed descriptions.")
      ::warnings
      ::fn-invoke-direct
      ::rewrite-polyfills
-     ::checked-arrays])))
+     ::checked-arrays
+     ::aot-cache
+
+     ;; these need definitions above
+     ::closure-variable-map-out
+     ::closure-generate-exports
+     ::closure-module-roots
+     ::rename-prefix
+     ::closure-property-map-in
+     ::ignore-js-module-exts
+     ::closure-property-map-out
+     ::stable-names
+     ::watch-error-fn
+     ::browser-repl
+     ::opts-cache
+     ::watch
+     ::cache-analysis-format
+     ::rename-prefix-namespace
+     ::closure-variable-map-in
+     ::use-only-custom-externs
+
+
+     ]
+    )))

@@ -18,25 +18,21 @@
    [strictly-specking-standalone.ansi-util :refer [with-color-when color]]   )
   (:import [clojure.lang IExceptionInfo]))
 
-(defn eval-js [{:keys [browser-callbacks repl-eval-timeout] :as figwheel-server} js]
-  (let [out (chan)
-        repl-timeout (or repl-eval-timeout 8000)
-        callback (fn [result]
-                   (put! out result)
-                   (go
-                     (<! (timeout 2000))
-                     (close! out)))]
-    (server/send-message-with-callback figwheel-server
-                                       (:build-id figwheel-server)
-                                       {:msg-name :repl-eval
-                                        :code js}
-                                       callback)
-    (let [[v ch] (alts!! [out (timeout repl-timeout)])]
-      (if (= ch out)
-        v
-        {:status :exception
-         :value "Eval timed out!"
-         :stacktrace "No stacktrace available."}))))
+(let [timeout-val (Object.)]
+  (defn eval-js [{:keys [browser-callbacks repl-eval-timeout] :as figwheel-server} js]
+    (let [out (promise)
+          repl-timeout (or repl-eval-timeout 8000)]
+      (server/send-message-with-callback figwheel-server
+                                         (:build-id figwheel-server)
+                                         {:msg-name :repl-eval
+                                          :code js}
+                                         (partial deliver out))
+      (let [v (deref out repl-timeout timeout-val)]
+        (if (= timeout-val v)
+          {:status :exception
+           :value "Eval timed out!"
+           :stacktrace "No stacktrace available."}
+          v)))))
 
 (defn connection-available?
   [figwheel-server build-id]
@@ -93,6 +89,9 @@
     ;; we need to print in the same thread as
     ;; the that the repl process was created in
     ;; thank goodness for the go loop!!
+
+    ;; TODO I don't think we need this anymore
+    ;; if we miss extraneous prints it's not a big deal
     (reset! (::repl-writers figwheel-server) (get-thread-bindings))
     (go-loop []
       (when-let [{:keys [stream args]}
@@ -112,12 +111,18 @@
   (-evaluate [_ _ _ js]
     (reset! (::repl-writers figwheel-server) (get-thread-bindings))
     (wait-for-connection figwheel-server)
-    (eval-js figwheel-server js))
+    (let [{:keys [out] :as result} (eval-js figwheel-server js)]
+      (when (not (string/blank? out))
+        (println (string/trim-newline out)))
+      result))
       ;; this is not used for figwheel
   (-load [this ns url]
     (reset! (::repl-writers figwheel-server) (get-thread-bindings))
     (wait-for-connection figwheel-server)
-    (eval-js figwheel-server (slurp url)))
+    (let [{:keys [out] :as result} (eval-js figwheel-server (slurp url))]
+      (when (not (string/blank? out))
+        (println (string/trim-newline out)))
+      result))
   (-tear-down [_]
     (close! (:repl-print-chan figwheel-server))
     true)
@@ -160,10 +165,10 @@
   [_ figwheel-env]
   (try
     (cond
-      (and (require? 'figwheel.tools.nrepl)
-           (when-let [present-var (resolve 'figwheel.tools.nrepl/*cljs-evaluator*)]
+      (and (require? 'cider.piggieback)
+           (when-let [present-var (resolve 'cider.piggieback/*cljs-repl-env*)]
              (thread-bound? present-var)))
-      (let [cljs-repl (resolve 'figwheel.tools.nrepl/cljs-repl)
+      (let [cljs-repl (resolve 'cider.piggieback/cljs-repl)
             opts' (:repl-opts figwheel-env)]
         (apply cljs-repl figwheel-env (apply concat opts')))
       (and (require? 'cemerick.piggieback)
@@ -182,11 +187,11 @@ This is commonly caused by
 
 example profile.clj code:
 -----
-:profiles {:dev {:dependencies [[com.cemerick/piggieback <current-version>]
+:profiles {:dev {:dependencies [[cider/piggieback <current-version>]
                                 [org.clojure/tools.nrepl  <current-version>]]
-                 :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
+                 :repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}}
 -----
-Please see the documentation for piggieback here https://github.com/cemerick/piggieback#installation
+Please see the documentation for piggieback here https://github.com/clojure-emacs/piggieback#installation
 
 Note: Cider will inject this config into your project.clj.
 This can cause confusion when your are not using Cider."]
@@ -194,7 +199,31 @@ This can cause confusion when your are not using Cider."]
 
 (defmethod start-cljs-repl :default
   [_ figwheel-env]
-  (cljs.repl/repl* figwheel-env (:repl-opts figwheel-env)))
+  (let [prompt (:prompt (:repl-opts figwheel-env))
+        prompt-fn' (fn [] (with-out-str (prompt)))]
+    (cond (and
+           (require? 'rebel-readline.cljs.repl)
+           (require? 'rebel-readline.commands)
+           (resolve  'rebel-readline.cljs.repl/repl*)
+           (resolve  'rebel-readline.commands/add-command))
+          (let [rebel-cljs-repl* (resolve 'rebel-readline.cljs.repl/repl*)
+                add-command      (resolve 'rebel-readline.commands/add-command)
+                docs             (resolve 'figwheel-sidecar.system/repl-function-docs)]
+            (when (and add-command docs @add-command @docs)
+              (add-command
+               :repl/help-figwheel
+               #(println @docs)
+               "Displays the help docs for the Figwheel REPL"))
+            (try
+              (rebel-cljs-repl* figwheel-env (:repl-opts figwheel-env))
+              (catch clojure.lang.ExceptionInfo e
+                (if (-> e ex-data :type (= :rebel-readline.jline-api/bad-terminal))
+                  (do (println (.getMessage e))
+                      (println "Falling back to REPL without terminal readline functionality!")
+                      (cljs.repl/repl* figwheel-env (:repl-opts figwheel-env)))
+                  (throw e)))))
+          :else
+          (cljs.repl/repl* figwheel-env (:repl-opts figwheel-env)))))
 
 (defn in-nrepl-env? []
   (thread-bound? #'nrepl-eval/*msg*))
@@ -204,8 +233,7 @@ This can cause confusion when your are not using Cider."]
    (if (and (instance? IExceptionInfo e)
             (#{:js-eval-error :js-eval-exception} (:type (ex-data e))))
      (cljs.repl/repl-caught e repl-env opts)
-     ;; color is going to have to be configurable
-     (with-color-when (-> repl-env :figwheel-server :ansi-color-output)
+     (with-color-when (config/use-color? (:figwheel-server repl-env))
        (cljs-ex/print-exception e (cond-> {:environment :repl
                                            :current-ns ana/*cljs-ns*}
                                     form (assoc :source-form form)
@@ -216,7 +244,7 @@ This can cause confusion when your are not using Cider."]
 (defn warning-handler [repl-env form opts]
   (fn [warning-type env extra]
     (when-let [warning-data (cljs-ex/extract-warning-data warning-type env extra)]
-      (debug-prn (with-color-when (-> repl-env :figwheel-server :ansi-color-output)
+      (debug-prn (with-color-when (config/use-color? (:figwheel-server repl-env))
                    (cljs-ex/format-warning (assoc warning-data
                                                   :source-form form
                                                   :current-ns ana/*cljs-ns*
@@ -276,7 +304,7 @@ This can cause confusion when your are not using Cider."]
   (if (in-nrepl-env?)
     #(when-let [c (connection-count figwheel-server build-id)]
        (when (> c 1)
-         (with-color-when (-> figwheel-server :ansi-color-output)
+         (with-color-when (config/use-color? figwheel-server)
            (println
             (color
              (str "v------- " build-id "!{:conn " c "} -------")

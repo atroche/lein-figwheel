@@ -275,7 +275,7 @@
         (component/start-system running-build-keys))))
 
 (defn use-color? [system]
-  (-> system :figwheel-server :ansi-color-output))
+  (config/use-color? (:figwheel-server system)))
 
 ;; start System Control Functions
 ;; These commands are intended to be run from a Clojure REPL or to be
@@ -486,20 +486,20 @@
 (def repl-function-docs
   "Figwheel Controls:
           (stop-autobuild)                ;; stops Figwheel autobuilder
-          (start-autobuild [id ...])      ;; starts autobuilder focused on optional ids
+          (start-autobuild id ...)        ;; starts autobuilder focused on optional ids
           (switch-to-build id ...)        ;; switches autobuilder to different build
           (reset-autobuild)               ;; stops, cleans, and starts autobuilder
           (reload-config)                 ;; reloads build config and resets autobuild
-          (build-once [id ...])           ;; builds source one time
-          (clean-builds [id ..])          ;; deletes compiled cljs target files
-          (print-config [id ...])         ;; prints out build configurations
+          (build-once id ...)             ;; builds source one time
+          (clean-builds id ..)            ;; deletes compiled cljs target files
+          (print-config id ...)           ;; prints out build configurations
           (fig-status)                    ;; displays current state of system
           (figwheel.client/set-autoload false)    ;; will turn autoloading off
           (figwheel.client/set-repl-pprint false) ;; will turn pretty printing off
   Switch REPL build focus:
           :cljs/quit                      ;; allows you to switch REPL to another build
     Docs: (doc function-name-here)
-    Exit: Control+C or :cljs/quit
+    Exit: :cljs/quit
  Results: Stored in vars *1, *2, *3, *e holds last exception object")
 
 (defn figwheel-repl-options
@@ -753,4 +753,3 @@
 (defn start-figwheel-and-cljs-repl! [autobuild-options]
   (when-let [system (start-figwheel! autobuild-options)]
     (cljs-repl (:figwheel-system system))))
-

@@ -1,4 +1,4 @@
-(defproject figwheel-sidecar "0.5.15-SNAPSHOT"
+(defproject figwheel-sidecar "0.5.16-SNAPSHOT"
   :description "ClojureScript Autobuilder/Server which pushes changed files to the browser."
   :url "https://github.com/bhauman/lein-figwheel"
   :license {:name "Eclipse Public License - v 1.0"
@@ -8,9 +8,9 @@
         :dir ".."}
   :dependencies
   [[org.clojure/clojure "1.8.0"]
-   [org.clojure/clojurescript "1.8.51"
+   [org.clojure/clojurescript "1.9.946"
     :exclusions [org.apache.ant/ant]]
-   [org.clojure/core.async "0.3.443"
+   [org.clojure/core.async "0.4.474"
     :exclusions [org.clojure/tools.reader]]
    [com.stuartsierra/component "0.3.2"]
    [suspendable "0.1.1"
@@ -18,12 +18,13 @@
    [http-kit "2.2.0"]
    [ring-cors "0.1.11"
     :exclusions [ring/ring-core org.clojure/clojure]]
-   [ring/ring-core "1.6.1"
+   [ring/ring-core "1.6.3"
     :exclusions
     [org.clojure/tools.reader
      org.clojure/clojure]]
+   [co.deps/ring-etag-middleware "0.2.0"]
    [clj-stacktrace "0.2.8"]
-   [figwheel "0.5.15-SNAPSHOT"
+   [figwheel "0.5.16-SNAPSHOT"
       :exclusions [org.clojure/tools.reader]]
    [hawk "0.2.11" :exclusions [org.clojure/clojure]]
 
@@ -34,10 +35,12 @@
 
   :clean-targets ^{:protect false} ["dev-resources/public/js" "target"]
 
+  :jvm-opts ^:replace ["-Xms256m" "-Xmx2g"]
+
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.2"]]
-                   :source-paths ["cljs_src" "src"]
+                   :source-paths ["cljs_src" "src" "dev"]
                    :plugins [[lein-cljsbuild "1.1.3" :exclusions [[org.clojure/clojure]]]
-                             [lein-ancient "0.6.10"]]}
+                             [lein-ancient "0.6.15"]]}
              :repl {:plugins [[cider/cider-nrepl "0.11.0"]]
                     :source-paths ["cljs_src" "src"]
                     :resource-paths ["resources" "dev-resources"]
@@ -46,7 +49,7 @@
   :cljsbuild {
              :builds
               [{:id "dev"
-                :source-paths ["cljs_src"]
+                :source-paths ["cljs_src" "../support/src"]
                 :compiler {:main figwheel-helper.core
                            :asset-path "js/out"
                            :output-to  "dev-resources/public/js/figwheel-helper.js"

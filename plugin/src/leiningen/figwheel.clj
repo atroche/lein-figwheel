@@ -6,6 +6,7 @@
    [leiningen.core.project :as lproject]
    [leiningen.clean :as clean]
    [leiningen.core.main :as main]
+   [leiningen.trampoline :as tramp]
    [clojure.java.io :as io]
    [clojure.set :refer [intersection]]
    [leiningen.figwheel.fuzzy :as fuz]
@@ -13,7 +14,8 @@
   (:import (java.io File)
            (java.nio.file Path)))
 
-(def _figwheel-version_ "0.5.15-SNAPSHOT")
+(def _figwheel-version_ "0.5.16-SNAPSHOT")
+(def _rebel-readline-cljs-version_ "0.1.1")
 
 (defn make-subproject [project paths-to-add]
   (with-meta
@@ -46,12 +48,25 @@
           (System/exit 1))))
    requires))
 
-;; well this is private in the leiningen.cljsbuild ns
+(defn coord-version [library]
+  (let [[_ coords version]
+        (some-> (io/resource (format "META-INF/leiningen/%s/%s/project.clj" library library))
+                slurp
+                read-string)]
+    version))
+
+(def rebel-readline-cljs-version
+  (or (coord-version "rebel-readline-cljs") _rebel-readline-cljs-version_))
+
 (defn- run-local-project [project paths-to-add requires form]
-  (let [project' (-> project
-                   (update-in [:dependencies] conj ['figwheel-sidecar _figwheel-version_])
-                   (update-in [:dependencies] conj ['figwheel _figwheel-version_])
-                   (make-subproject paths-to-add))]
+  (let [project' (cond-> project
+                   (get-in project [:figwheel :readline] true)
+                   (update-in [:dependencies] conj ['com.bhauman/rebel-readline-cljs rebel-readline-cljs-version])
+                   :finally
+                   (->
+                    (update-in [:dependencies] conj ['figwheel-sidecar _figwheel-version_])
+                    (update-in [:dependencies] conj ['figwheel _figwheel-version_])
+                    (make-subproject paths-to-add)))]
     (eval-and-catch project' requires form)))
 
 (defn figwheel-exec-body [body]
@@ -216,7 +231,7 @@
   (vec
    (if (map? builds)
      (keep (fn [[k v]]
-             (when (named? k)
+             (when (and (map? v) (named? k))
                (assoc v :id (name k))))
            builds)
      builds)))
@@ -480,6 +495,12 @@
 (defmethod fig-dispatch ":help" [_ project build-ids]
   (println (:doc (meta #'figwheel))))
 
+(defn launch-figwheel [command project build-ids]
+  (clean-on-dependency-change project)
+  (ensure-build-dirs project)
+  (println "Figwheel: Cutting some fruit, just a sec ...")
+  (fig-dispatch command project build-ids))
+
 (defn figwheel
 "Figwheel - a tool that helps you compile and reload ClojureScript.
 
@@ -554,19 +575,19 @@ Configuration:
   ignored.
 
   To learn more about configuring Figwheel please see the README at
-  https://github.com/bhauman/lein-figwheel
-"
+  https://github.com/bhauman/lein-figwheel"
   [project & command-and-or-build-ids]
   (let [[command & build-ids] command-and-or-build-ids]
     (when-not ((every-pred command-like? report-if-bad-command) command)
       (let [[command build-ids] (if (command-like? command)
-                                  [command build-ids]
-                                  [nil (and command (cons command build-ids))])]
-        (clean-on-dependency-change project)
-        (ensure-build-dirs project)
-        (println "Figwheel: Cutting some fruit, just a sec ...")
-        (fig-dispatch command project build-ids)))))
-
-#_(figwheel {:cljsbuilds {:builds [{:id :five}
-                                 {:id :six}]}}
-          )
+                                    [command build-ids]
+                                    [nil (and command (cons command build-ids))])]
+        (if (and
+             (or (= nil command)
+                 (= ":reactor" command))
+             (get-in project [:figwheel :repl] true)
+             (get-in project [:figwheel :readline] true))
+          (if tramp/*trampoline?*
+            (launch-figwheel command project build-ids)
+            (apply tramp/trampoline project "figwheel" command-and-or-build-ids))
+          (launch-figwheel command project build-ids))))))

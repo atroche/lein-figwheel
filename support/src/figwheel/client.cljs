@@ -16,7 +16,7 @@
    [cljs.core.async.macros :refer [go go-loop]])
   (:import [goog]))
 
-(def _figwheel-version_ "0.5.15-SNAPSHOT")
+(def _figwheel-version_ "0.5.16-SNAPSHOT")
 
 (def js-stringify
   (if (and (exists? js/JSON) (some? js/JSON.stringify))
@@ -192,12 +192,15 @@
 (let [base-path (utils/base-url-path)]
   (defn eval-javascript** [code opts result-handler]
     (try
-      (enable-repl-print!)
-      (let [result-value (utils/eval-helper code opts)]
-        (result-handler
-         {:status :success,
-          :ua-product (get-ua-product)
-          :value result-value}))
+      (let [sb (js/goog.string.StringBuffer.)]
+        (binding [cljs.core/*print-newline* true
+                  cljs.core/*print-fn* (fn [x] (.append sb x))]
+          (let [result-value (utils/eval-helper code opts)]
+            (result-handler
+             {:status :success
+              :out (str sb)
+              :ua-product (get-ua-product)
+              :value result-value}))))
       (catch js/Error e
         (result-handler
          {:status :exception
@@ -210,12 +213,7 @@
          {:status :exception
           :ua-product (get-ua-product)
           :value (pr-str e)
-          :stacktrace "No stacktrace available."}))
-      (finally
-        ;; should we let people shoot themselves in the foot?
-        ;; you can theoretically disable repl printing in the repl
-        ;; but for now I'm going to prevent it
-        (enable-repl-print!)))))
+          :stacktrace "No stacktrace available."})))))
 
 (defn ensure-cljs-user
   "The REPL can disconnect and reconnect lets ensure cljs.user exists at least."

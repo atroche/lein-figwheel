@@ -38,8 +38,21 @@ pom.xml.asc
 .nrepl-port
 .lein-classpath
 config.ru
+checksum.tmp
 
 figwheel_server.log
 *~
 *-init.clj
 sidecar/figwheel_server.log
+
+DESIGN_THOUGHTS.md
+
+example/checkouts/figwheel
+
+example/checkouts/figwheel-sidecar
+
+figwheel-repl/compile.sh
+
+figwheel-main/dev/example/except.cljs
+
+figwheel-main/.rebel_readline_history

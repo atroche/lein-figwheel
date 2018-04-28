@@ -1,4 +1,4 @@
-(defproject lein-figwheel "0.5.15-SNAPSHOT"
+(defproject lein-figwheel "0.5.16-SNAPSHOT"
   :description "ClojureScript Autobuilder/Server which pushes changed files to the browser. This is the lein plugin."
   :url "https://github.com/bhauman/lein-figwheel"
   :license {:name "Eclipse Public License - v 1.0"
@@ -10,7 +10,10 @@
          :url "https://github.com/bhauman/lein-figwheel"
          :dir ".."}
 
-  :profiles {:dev {:dependencies [[leiningen "2.7.1"]
+  :jvm-opts ^:replace ["-Xms256m" "-Xmx2g"]
+
+  :profiles {:dev {:dependencies [[leiningen "2.8.1"]
+                                  [com.bhauman/rebel-readline-cljs "0.1.1"]
                                   [org.clojure/test.check "0.9.0"]]
                    :resource-paths ["test-resources"]
                    :source-paths ["dev" "src"]
