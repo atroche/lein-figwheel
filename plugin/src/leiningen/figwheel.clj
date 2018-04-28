@@ -456,8 +456,9 @@
 
 (defn build-once [project build-ids]
   (when-not (report-if-bad-build-ids project build-ids)
-    (let [checkout-sources (checkout-source-paths project)
-          project (add-source-paths project checkout-sources)]
+    (let [project (if (:add-checkout-source-paths (figwheel-options project))
+                    (add-source-paths project (checkout-source-paths project))
+                    project)]
       (run-build-once
         project
         (fuzzy-config-from-project project)
@@ -467,8 +468,9 @@
 
 (defn figwheel-main [project build-ids]
   (when-not (report-if-bad-build-ids project build-ids)
-    (let [checkout-sources (checkout-source-paths project)
-          project          (add-source-paths project checkout-sources)]
+    (let [project (if (:add-checkout-source-paths (figwheel-options project))
+                    (add-source-paths project (checkout-source-paths project))
+                    project)]
       (run-figwheel
         project
         (-> project fuzzy-config-from-project)
